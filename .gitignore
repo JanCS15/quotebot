@@ -1,0 +1,8 @@
+*.txt
+*.env
+tests/
+.vscode/
+__pycache__/
+docker-compose.yml
+Dockerfile
+media

@@ -1,23 +1,26 @@
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+import concurrent
+import random
+
+from telegram import Update, constants
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, Defaults, ConversationHandler, MessageHandler
 from dotenv import load_dotenv
-import os, psycopg2, logging
-print("test")
+from os import environ as env
+import logging
+from quotes import Quotes
+from addquote import Addquote
+
 load_dotenv(dotenv_path="access.env")
 
 logging.basicConfig (format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-logger = logging.getLogger(__name__)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
-token = os.environ.get('TG_TOKEN')
-dbcon = psycopg2.connect(host=os.environ.get('PG_HOST'), user=os.environ.get('PG_USER'), dbname=os.environ.get('PG_DBNAME'), password=os.environ.get('PG_PASSWORD'))
-dbcur = dbcon.cursor()
+token = env.get('TG_TOKEN')
 
-dbQuery = dbcur.execute
-dbFetchOne = dbcur.fetchone
-dbFetchAll = dbcur.fetchall
-dbCommit = dbcon.commit
 
-##########################################################################################
+parse_mode = constants.ParseMode.MARKDOWN_V2
+FNAME, LNAME, ZITAT, YEAR, CONTEXTREQUEST, CONTEXTPROMPT, USERCONFIRM, ADMINCONFIRM = range(8)
+
+#########################################################################################
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -25,112 +28,62 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def randomzitat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_input = context.args
-    zitat = Quotes.getRandomZitat(user_input)
+    zitat = Quotes.getRandomQuote(user_input)
     
     await update.message.reply_text(zitat)
 
 async def zitate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_input = context.args
-    zitat = Quotes.getZitate(user_input)
+    zitat = Quotes.getQuotes(user_input)
 
     await update.message.reply_text(zitat)
 
+async def lovis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    x = random.randint(3, 20)
+    countO = ""
+    for i in range(x):
+        countO += "o"
+    await update.message.reply_text(text="L" + countO + "vis!")
+
+async def dailyMessage(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    zitat = Quotes.getDailyMessage()
+
+    await update.message.reply_text(zitat)
+
+async def help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text(
+        "*Willkommen zum ZitateBot der LAN Party* \n\nCommands: \n\n /randomzitat vorname nachname \n /zitate vorname nachname \n /addzitat \n /topzitate \n\nRandom:\n /lovis \n /credits\n\n _version 2\\.0\\.0_", parse_mode=parse_mode)
+
+async def credits(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text("Programmiert by Jan \n\nTechnische Hilfe: Fabian und Henning \n\nIdee Zitat des Tages: Claudio", parse_mode=parse_mode)
+
+async def error(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logging.warning(f'Error {update} caused error {context.error}')
+
+##############################################################################################################
 
 
 
-class Quotes:
 
-    def getRandomZitat(*args):         
-        if len(*args) == 0:       
-            dbQuery("SELECT zitate.zitat, zitate.kontext, persons.fname, persons.lname FROM zitate INNER JOIN persons on zitate.person_id = persons.person_id WHERE active = true ORDER by random() LIMIT 1")
-            query = dbFetchOne()         
 
-            zitat = query[0]
-            kontext = query[1]
-            fname = query[2].capitalize()
-            lname = query[3][0].capitalize()
 
-            if kontext is not None and kontext!= "":
-                zitat = kontext + "\n\n" + fname + " " + lname[0].capitalize() + ": " + zitat
-                print(zitat)
-            else:
-                zitat = fname + " " + lname + ": " + zitat
+def main():
+    app = ApplicationBuilder().token(token).build()
 
-        ## Other Args Length
-        #
-        #
-        #
-        ##
-                        
-        else: 
-            zitat = "Dieses Feature ist nicht wieder implementiert worden"
-                
-        return zitat
-    
-    def getZitate(*args):
-        if len(*args) == 0 or len(*args) > 2:
-            return("Bitte gebe einen Vornamen oder einen Vor- und Nachnamen an")
+    #app.job_queue.run_daily(dailyMessage, time=datetime.time(hour=18, minute=0, second=0), days=(0, 1, 2, 3, 5, 6))
 
-        if len(*args) == 1:
-            inputname = args[0][0].lower()
-            dbQuery("SELECT true FROM persons WHERE fname = %s OR lname = %s", (inputname, inputname))                                #Check if fname or lname exists in persons
-            checkname = dbFetchOne()                                                                                            
-            doubles = Quotes.checkDoubles(inputname)
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("randomzitat", randomzitat))
+    app.add_handler(CommandHandler("lovis", lovis))
+    app.add_handler(CommandHandler("zitate", zitate))
+    app.add_handler(CommandHandler("daily", dailyMessage))
+    app.add_handler(CommandHandler("help", help))
+    app.add_handler(CommandHandler("credits", credits))
+    app.add_handler(Addquote.addQuoteHandler)
 
-            if checkname != None and checkname[0] == True:                                                                                  #If name Exists ->
-                if doubles == False:
-                    dbQuery("SELECT zitate.year, zitate.kontext, persons.fname, persons.lname, zitate.zitat FROM zitate INNER JOIN persons ON zitate.person_id = persons.person_id WHERE active = true AND fname = %s OR lname = %s", (inputname, inputname))
-                    zitatelst = dbFetchAll()
-                    print(zitatelst)
-                if doubles == True:
-                    return("Diese Person gibt es doppelt")
-            if not checkname:
-                return("Diese Person existiert nicht")
-        if len(*args) == 2:
-            fname = args[0][0].lower()
-            lname = args[0][1].lower()
-            dbQuery("SELECT true FROM persons WHERE fname = %s AND lname = %s", (fname, lname))                                #Check if fname or lname exists in persons
-            checkname = dbFetchOne() 
+    app.add_error_handler(error)
 
-            if checkname != None and checkname[0] == True:
-                dbQuery("SELECT zitate.year, zitate.kontext, persons.fname, persons.lname, zitate.zitat FROM zitate INNER JOIN persons ON zitate.person_id = persons.person_id WHERE active = true AND fname = %s AND lname = %s", (fname, lname))    
-                zitatelst = dbFetchAll()
-                print(zitatelst)
-        
-            if not checkname:
-                return("Diese Person existiert nicht")
-            
-        if not zitatelst:
-            return("Diese Person hat keine Zitate")
-        else:
-            zitate = ""
-            fname = zitatelst[0][2]
-            lname = zitatelst[0][3]
-            for row in zitatelst:
-                if row[1] is not None and row[1] != "":
-                    zitate = zitate + str(row[0]) + ": " + row[1] + "\n" + row[4] + "\n\n"
-                else:
-                    zitate = zitate + str(row[0]) + ": " + row[4] + "\n\n"
+    app.run_polling()
 
-            return("Zitate " + fname + " " + lname + ": \n\n" + zitate)
-
-    def checkDoubles(inputname):
-        dbQuery("SELECT fname FROM persons WHERE fname = %s",[inputname])                         #Check if fname isn't Double   
-        doubleFname = dbFetchAll()
-
-        dbQuery("SELECT lname FROM persons WHERE lname = %s",[inputname])                         #Check if lname isn't Double
-        doubleLname = dbFetchAll()
-
-        if len(doubleFname) <= 1 and len(doubleLname) <= 1:
-            return(False)
-        else: 
-            return(True)
-
-app = ApplicationBuilder().token(token).build()
-
-app.add_handler(CommandHandler("start", start))
-app.add_handler(CommandHandler("randomzitat", randomzitat))
-app.add_handler(CommandHandler("zitate", zitate))
-
-app.run_polling()
-
+if __name__ == "__main__":
+    main()

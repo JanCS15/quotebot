@@ -48,7 +48,7 @@ class Quotes:
 
         return zitat
 
-    def getQuotes(*args):
+    def getQuotes(*args, offset):
         if len(*args) == 0 or len(*args) > 2:
             return "Bitte gebe einen Vornamen oder einen Vor- und Nachnamen an"
 
@@ -65,7 +65,6 @@ class Quotes:
                         "SELECT zitate.year, zitate.kontext, persons.fname, persons.lname, zitate.zitat FROM zitate INNER JOIN persons ON zitate.person_id = persons.person_id WHERE active = true AND fname = %s OR lname = %s",
                         (inputname, inputname))
                     zitatelst = dbFetchAll()
-                    print(zitatelst)
                 if doubles == True:
                     return ("Diese Person gibt es doppelt")
             if not checkname:

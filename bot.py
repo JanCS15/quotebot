@@ -1,15 +1,18 @@
 import concurrent
 import random
+from operator import add
 
 from telegram import Update, constants
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, Defaults, ConversationHandler, MessageHandler
+from telegram.ext import ApplicationBuilder, filters, CommandHandler, ContextTypes, Defaults, ConversationHandler, \
+    MessageHandler, CallbackQueryHandler
 from dotenv import load_dotenv
 from os import environ as env
 import logging
 from quotes import Quotes
-from addquote import Addquote
+from addquote import AddQuote
+from datetime import time
 
-load_dotenv(dotenv_path="access.env")
+load_dotenv(dotenv_path=".env")
 
 logging.basicConfig (format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -46,9 +49,12 @@ async def lovis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(text="L" + countO + "vis!")
 
 async def dailyMessage(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    zitat = Quotes.getDailyMessage()
+    quote = Quotes.getDailyMessage()
+    await context.bot.send_message(chat_id=env.get('ADMIN_CHAT_ID'), text=quote)
 
-    await update.message.reply_text(zitat)
+async def fridaysMessage(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    quote = Quotes.getFridaysMessage()
+    await context.bot.send_message(chat_id=env.get('ADMIN_CHAT_ID'), text=quote)
 
 async def help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
@@ -68,9 +74,10 @@ async def error(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 def main():
-    app = ApplicationBuilder().token(token).build()
-
-    #app.job_queue.run_daily(dailyMessage, time=datetime.time(hour=18, minute=0, second=0), days=(0, 1, 2, 3, 5, 6))
+    app = ApplicationBuilder().concurrent_updates(False).token(token).build()
+    j = app.job_queue
+    j.run_daily(dailyMessage, time=time(hour=18, minute=0, second=0), days=(0, 1, 2, 3, 5, 6))
+    j.run_daily(fridaysMessage, time=time(hour=18, minute=0, second=0), days=(4,))
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("randomzitat", randomzitat))
@@ -79,8 +86,25 @@ def main():
     app.add_handler(CommandHandler("daily", dailyMessage))
     app.add_handler(CommandHandler("help", help))
     app.add_handler(CommandHandler("credits", credits))
-    app.add_handler(Addquote.addQuoteHandler)
-
+    app.add_handler(
+        ConversationHandler(
+            entry_points=[CommandHandler("addzitat", AddQuote.start)],
+            states={
+                FNAME: [
+                    MessageHandler(filters.TEXT, AddQuote.fname),
+                    MessageHandler(filters.VIDEO | filters.PHOTO | filters.AUDIO | filters.Document.ALL, AddQuote.addMedia)
+                ],
+                LNAME: [CallbackQueryHandler(AddQuote.lname)],
+                ZITAT: [MessageHandler(filters.TEXT, AddQuote.zitat)],
+                YEAR: [MessageHandler(filters.TEXT, AddQuote.year)],
+                CONTEXTREQUEST: [CallbackQueryHandler(AddQuote.contextRequest)],
+                CONTEXTPROMPT: [MessageHandler(filters.TEXT, AddQuote.contextPrompt)],
+                USERCONFIRM: [CallbackQueryHandler(AddQuote.userconfirm)]
+            },
+            fallbacks = [CommandHandler("cancel", AddQuote.cancel)],
+        )
+    )
+    app.add_handler(CallbackQueryHandler(AddQuote.adminconfirm, pattern="^admin_"))
     app.add_error_handler(error)
 
     app.run_polling()

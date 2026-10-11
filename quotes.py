@@ -2,8 +2,9 @@ from dotenv import load_dotenv
 from os import environ as env
 from random import randint
 import psycopg2
+from pip._internal.cli import status_codes
 
-load_dotenv(dotenv_path="access.env")
+load_dotenv(dotenv_path=".env")
 
 dbcon = psycopg2.connect(host=env.get('PG_HOST'), user=env.get('PG_USER'), dbname=env.get('PG_DBNAME'), password=env.get('PG_PASSWORD'))
 dbcur = dbcon.cursor()
@@ -48,7 +49,7 @@ class Quotes:
 
         return zitat
 
-    def getQuotes(*args, offset):
+    def getQuotes(*args):
         if len(*args) == 0 or len(*args) > 2:
             return "Bitte gebe einen Vornamen oder einen Vor- und Nachnamen an"
 
@@ -112,9 +113,10 @@ class Quotes:
         else:
             return (True)
 
-    def getDailyMessage(self):
+    @staticmethod
+    def getDailyMessage():
         dbQuery(
-            "SELECT zitate.year, zitate.kontext, persons.fname, persons.lname, zitate.zitat FROM zitate INNER JOIN persons ON zitate.person_id = persons.person_id WHERE daily = True AND active = True ORDER BY date DESC LIMIT 10")
+            "SELECT zitate.year, zitate.kontext, persons.fname, persons.lname, zitate.zitat FROM zitate INNER JOIN persons ON zitate.person_id = persons.person_id WHERE daily = True AND active = True ORDER BY adddate DESC LIMIT 30")
         recentZitate = dbFetchAll()
 
         if len(recentZitate) > 0:
@@ -129,4 +131,25 @@ class Quotes:
             else:
                 return "Zitat des Tages:  \n\n" + year + " \n" + fname + " " + lname + ": " + zitat
         else:
-            return "test"
+            dbQuery("UPDATE zitate SET daily = true WHERE active = true")
+            dbCommit()
+
+    @staticmethod
+    def getFridaysMessage():
+        dbQuery("SELECT * FROM fmessage WHERE active = true")
+        check = dbFetchOne()
+
+        if check == None:
+            dbQuery("UPDATE fmessage SET active = true")
+            dbCommit()
+
+        dbQuery("SELECT fridaysid, text FROM fmessage WHERE active = true ORDER by random() LIMIT 1")
+        qResult = dbFetchOne()
+        print(qResult)
+        fridaysid = qResult[0]
+        text = qResult[1]
+
+        dbQuery("UPDATE fmessage SET active = false WHERE fridaysid = %s", [fridaysid])
+        dbCommit()
+
+        return (text)

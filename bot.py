@@ -30,7 +30,7 @@ MEME = range(1)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(f'Hello {update.effective_user.username}')
+    await update.message.reply_text(f'Hello {update.effective_user.id}')
 
 async def randomzitat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_input = context.args
@@ -99,7 +99,7 @@ def main():
     j.run_daily(callback=fridaysMessage, time=time(hour=18, minute=0, second=0, tzinfo=tz), days=(4,), chat_id=env.get("GROUP_CHAT"))
     j.run_daily(callback=randomMemeWednesday, time=time(hour=17, minute=35, second=0, tzinfo=tz), days=(0, 1, 2, 3, 4, 5, 6), chat_id=env.get("GROUP_CHAT"))
 
-    app.add_handler(CommandHandler("start", start, filters=chat_filter))
+    app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("randomzitat", randomzitat, filters=chat_filter))
     app.add_handler(CommandHandler("lovis", lovis, filters=chat_filter))
     app.add_handler(CommandHandler("zitate", zitate, filters=chat_filter))

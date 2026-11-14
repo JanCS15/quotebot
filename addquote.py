@@ -277,7 +277,7 @@ class AddQuote:
                 document = await update.message.document.get_file()
                 file_name, file_type = os.path.splitext(update.message.document.file_name)
                 file_type = file_type.lower()
-                if file_type in {".mp4", ".jpg", ".jpeg", ".png",  ".gif"}:
+                if file_type in {".mp3", ".mp4", ".jpg", ".jpeg", ".png",  ".gif"}:
                     path = f"./media/{file_name}_{document.file_id}{file_type}"
                     await document.download_to_drive(path)
                     await update.message.reply_text("Datei gespeichert, Vielen Dank")

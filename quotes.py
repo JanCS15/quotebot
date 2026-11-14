@@ -29,7 +29,7 @@ def getAllowedChatIds():
 class Quotes:
     def getRandomQuote(*args):
         if len(*args) == 0:
-            dbQuery("SELECT zitate.zitat, zitate.kontext, persons.fname, persons.lname, zitate.year FROM zitate INNER JOIN persons on zitate.person_id = persons.person_id WHERE active = true ORDER by random() LIMIT 1")
+            dbQuery("SELECT zitate.zitat, zitate.kontext, persons.fname, persons.lname, zitate.year FROM zitate INNER JOIN persons on zitate.person_id = persons.person_id WHERE active = true AND zitate.type = 'text' ORDER by random() LIMIT 1")
             query = dbFetchOne()
 
             zitat = query[0]
@@ -63,7 +63,7 @@ class Quotes:
             if checkname is not None and checkname[0] == True:  # If name Exists ->
                 if doubles == False:
                     dbQuery(
-                        "SELECT zitate.year, zitate.kontext, persons.fname, persons.lname, zitate.zitat FROM zitate INNER JOIN persons ON zitate.person_id = persons.person_id WHERE active = true AND fname = %s OR lname = %s",
+                        "SELECT zitate.year, zitate.kontext, persons.fname, persons.lname, zitate.zitat FROM zitate INNER JOIN persons ON zitate.person_id = persons.person_id WHERE active = true AND fname = %s OR lname = %s LIMIT 30",
                         (inputname, inputname))
                     zitatelst = dbFetchAll()
                 if doubles == True:
@@ -79,7 +79,7 @@ class Quotes:
 
             if checkname != None and checkname[0] == True:
                 dbQuery(
-                    "SELECT zitate.year, zitate.kontext, persons.fname, persons.lname, zitate.zitat FROM zitate INNER JOIN persons ON zitate.person_id = persons.person_id WHERE active = true AND fname = %s AND lname = %s",
+                    "SELECT zitate.year, zitate.kontext, persons.fname, persons.lname, zitate.zitat FROM zitate INNER JOIN persons ON zitate.person_id = persons.person_id WHERE active = true AND fname = %s AND lname = %s LIMIT 35",
                     (fname, lname))
                 zitatelst = dbFetchAll()
                 print(zitatelst)
@@ -95,9 +95,9 @@ class Quotes:
             lname = zitatelst[0][3]
             for row in zitatelst:
                 if row[1] is not None and row[1] != "":
-                    zitate = zitate + str(row[0]) + ": " + row[1] + "\n" + row[4] + "\n\n"
+                    zitate = zitate + str(row[0]) + ": " + row[1] + "\n\"" + row[4] + "\"\n\n"
                 else:
-                    zitate = zitate + str(row[0]) + ": " + row[4] + "\n\n"
+                    zitate = zitate + str(row[0]) + ": \"" + row[4] + "\"\n\n"
 
             return ("Zitate " + fname + " " + lname + ": \n\n" + zitate)
 
@@ -116,7 +116,7 @@ class Quotes:
     @staticmethod
     def getDailyMessage():
         dbQuery(
-            "SELECT zitate.year, zitate.kontext, persons.fname, persons.lname, zitate.zitat FROM zitate INNER JOIN persons ON zitate.person_id = persons.person_id WHERE daily = True AND active = True ORDER BY adddate DESC LIMIT 30")
+            "SELECT zitate.year, zitate.kontext, persons.fname, persons.lname, zitate.zitat FROM zitate INNER JOIN persons ON zitate.person_id = persons.person_id WHERE daily = True AND active = True ORDER BY adddate DESC LIMIT 35")
         recentZitate = dbFetchAll()
 
         if len(recentZitate) > 0:

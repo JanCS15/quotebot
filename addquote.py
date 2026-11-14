@@ -9,6 +9,7 @@ from datetime import date
 load_dotenv(dotenv_path=".env")
 
 logging.basicConfig (format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 dbcon = psycopg2.connect(
     host=os.environ.get('PG_HOST'),
@@ -193,7 +194,7 @@ class AddQuote:
 
             await context.bot.send_message(
                 chat_id=os.environ.get('ADMIN_CHAT_ID'),
-                text=f"Neues Zitat eingereicht von {update.callback_query.message.chat.username}:\n\nKontext: {zcontext}\n\n{fname.capitalize()} {lname.capitalize()}: {quote}",
+                text=f"Neues Zitat eingereicht von {update.effective_chat.username}:\n\nKontext: {zcontext}\n\n{fname.capitalize()} {lname.capitalize()}: {quote}",
                 reply_markup=admin_markup,
             )
 
@@ -214,7 +215,7 @@ class AddQuote:
 
         # RETURNING id hinzugefügt (passe 'id' an, falls deine Spalte z.B. zitat_id heißt)
         dbQuery(
-            "INSERT INTO zitate (zitat, person_id, active, addid, kontext, year, adddate) VALUES (%s, %s, False, %s, %s, %s, %s) RETURNING id",
+            "INSERT INTO zitate (zitat, person_id, active, daily, addid, kontext, year, adddate) VALUES (%s, %s, False, False, %s, %s, %s, %s) RETURNING id",
             (zitat, person_id, chatid, zcontext, year, date.today()))
         new_id = dbFetchOne()[0] # ID für Admin zum confirmen
         dbCommit()
@@ -253,7 +254,7 @@ class AddQuote:
 
     @staticmethod
     async def addMedia(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        print("test")
+        path = None
         try:
             if update.message.photo:
                 photo = await update.message.photo[-1].get_file()
@@ -261,19 +262,19 @@ class AddQuote:
                 await photo.download_to_drive(path)
                 await update.message.reply_text("Bild gespeichert, Vielen Dank")
                 AddQuote.addMediaToDB(media_type="file", path=path)
-            if update.message.video:
+            elif update.message.video:
                 video = await update.message.video[-1].get_file()
                 path = f"./media/video_{video.file_id}.mp4"
                 await video.download_to_drive(path)
                 await update.message.reply_text("Video gespeichert, Vielen Dank")
                 AddQuote.addMediaToDB(media_type="file", path=path)
-            if update.message.audio:
+            elif update.message.audio:
                 audio = await update.message.audio[-1].get_file()
                 path = f"./media/audio_{audio.file_id}.mp3"
                 await audio.download_to_drive(path)
                 await update.message.reply_text("Audio gespeichert, Vielen Dank")
                 AddQuote.addMediaToDB(media_type="file", path=path)
-            if update.message.document:
+            elif update.message.document:
                 document = await update.message.document.get_file()
                 file_name, file_type = os.path.splitext(update.message.document.file_name)
                 file_type = file_type.lower()
@@ -281,20 +282,19 @@ class AddQuote:
                     path = f"./media/{file_name}_{document.file_id}{file_type}"
                     await document.download_to_drive(path)
                     await update.message.reply_text("Datei gespeichert, Vielen Dank")
-                    AddQuote.addMediaToDB(media_type="file", path=path)
+                    AddQuote.addMediaToDB(media_type="file", path=path, chat_id=update.effective_chat.id)
                 else:
                     await update.message.reply_text("Dateityp nicht unterstützt")
                     return FNAME
-
             await context.bot.send_message(
                 chat_id=os.environ.get('ADMIN_CHAT_ID'),
-                text=f"Neue Datei hochgeladen von {update.callback_query.message.chat.username}"
+                text=f"Neue Datei hochgeladen von {update.effective_chat.username}"
             )
-            logging.info(f"Datei hinzugefügt von {update.callback_query.message.chat.username}")
+            logger.info(f"File {path} added from {update.effective_chat.username}")
             return ConversationHandler.END
 
         except BadRequest as e:
-            logging.info(f"Fehler: {e}")
+            logger.info(f"Fehler: {e}")
             if "File is too big" in str(e):
                 await update.message.reply_text("Fehler: Die Datei überschreitet 20 MB")
 
@@ -304,10 +304,11 @@ class AddQuote:
 
 
     @staticmethod
-    def addMediaToDB(media_type, path):
+    def addMediaToDB(media_type, path, chat_id):
         dbQuery(
-            "INSERT INTO zitate (daily, active, adddate, file_path, type) "
-            "VALUES (%s, %s, %s, %s, %s)",
-            (False, False, date.today(), path, media_type)
+            "INSERT INTO zitate (daily, active, adddate, file_path, type, addid) "
+            "VALUES (%s, %s, %s, %s, %s, %s)",
+            (False, False, date.today(), path, media_type, chat_id)
         )
         dbCommit()
+        logger.info(f"{path} - added to database")

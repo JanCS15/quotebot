@@ -32,7 +32,7 @@ MEME = range(1)
 class AddMeme:
     @staticmethod
     async def start(update: Update, context: CallbackContext):
-        await update.message.reply_text("Bitte sende dein Meme für den Meme Mittwoch hier rein (GIF oder Bild")
+        await update.message.reply_text("Bitte sende dein Meme für den Meme Mittwoch hier rein (GIF oder Bild)")
         return MEME
 
     async def meme(update: Update, context: CallbackContext):

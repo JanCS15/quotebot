@@ -63,7 +63,7 @@ class Quotes:
             if checkname is not None and checkname[0] == True:  # If name Exists ->
                 if doubles == False:
                     dbQuery(
-                        "SELECT zitate.year, zitate.kontext, persons.fname, persons.lname, zitate.zitat FROM zitate INNER JOIN persons ON zitate.person_id = persons.person_id WHERE active = true AND fname = %s OR lname = %s LIMIT 30",
+                        "SELECT zitate.year, zitate.kontext, persons.fname, persons.lname, zitate.zitat FROM zitate INNER JOIN persons ON zitate.person_id = persons.person_id WHERE active = true AND fname = %s OR lname = %s AND zitate.type = 'text' LIMIT 30",
                         (inputname, inputname))
                     zitatelst = dbFetchAll()
                 if doubles == True:
@@ -79,7 +79,7 @@ class Quotes:
 
             if checkname != None and checkname[0] == True:
                 dbQuery(
-                    "SELECT zitate.year, zitate.kontext, persons.fname, persons.lname, zitate.zitat FROM zitate INNER JOIN persons ON zitate.person_id = persons.person_id WHERE active = true AND fname = %s AND lname = %s LIMIT 35",
+                    "SELECT zitate.year, zitate.kontext, persons.fname, persons.lname, zitate.zitat FROM zitate INNER JOIN persons ON zitate.person_id = persons.person_id WHERE active = true AND fname = %s AND lname = %s AND zitate.type = 'text' LIMIT 35",
                     (fname, lname))
                 zitatelst = dbFetchAll()
                 print(zitatelst)
@@ -116,20 +116,30 @@ class Quotes:
     @staticmethod
     def getDailyMessage():
         dbQuery(
-            "SELECT zitate.year, zitate.kontext, persons.fname, persons.lname, zitate.zitat FROM zitate INNER JOIN persons ON zitate.person_id = persons.person_id WHERE daily = True AND active = True ORDER BY adddate DESC LIMIT 35")
+            "SELECT zitate.year, zitate.kontext, persons.fname, persons.lname, zitate.zitat, zitate.type, zitate.file_path, zitate.id FROM zitate INNER JOIN persons ON zitate.person_id = persons.person_id WHERE daily = True AND active = True ORDER BY adddate DESC LIMIT 35")
         recentZitate = dbFetchAll()
 
         if len(recentZitate) > 0:
             r = randint(0, len(recentZitate) - 1)
-            year = str(recentZitate[r][0])
-            kontext = recentZitate[r][1]
-            fname = recentZitate[r][2].capitalize()
-            lname = recentZitate[r][3].capitalize()
-            zitat = recentZitate[r][4]
-            if kontext is not None and kontext != "":
-                return "Zitat des Tages:  \n\n" + year + ": " + kontext + "\n\n" + fname + " " + lname + ": " + zitat
+            qType = recentZitate[r][5]
+            qId = recentZitate[r][6]
+            if qType == "text":
+                year = str(recentZitate[r][0])
+                kontext = recentZitate[r][1]
+                fname = recentZitate[r][2].capitalize()
+                lname = recentZitate[r][3].capitalize()
+                zitat = recentZitate[r][4]
+
+                dbQuery("UPDATE zitate SET daily = False WHERE id=%s", [qId])
+                dbCommit()
+                if kontext is not None and kontext != "":
+                    return qType, "Zitat des Tages:  \n\n" + year + ": " + kontext + "\n\n" + fname + " " + lname + ": " + zitat
+                else:
+                    return qType, "Zitat des Tages:  \n\n" + year + " \n" + fname + " " + lname + ": " + zitat
             else:
-                return "Zitat des Tages:  \n\n" + year + " \n" + fname + " " + lname + ": " + zitat
+                dbQuery("UPDATE zitate SET daily = False WHERE id=%s", [qId])
+                dbCommit()
+                return qType, recentZitate[r][6]
         else:
             dbQuery("UPDATE zitate SET daily = true WHERE active = true")
             dbCommit()
@@ -145,7 +155,7 @@ class Quotes:
 
         dbQuery("SELECT fridaysid, text FROM fmessage WHERE active = true ORDER by random() LIMIT 1")
         qResult = dbFetchOne()
-        print(qResult)
+
         fridaysid = qResult[0]
         text = qResult[1]
 

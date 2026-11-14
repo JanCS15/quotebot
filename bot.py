@@ -62,15 +62,24 @@ async def lovis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def dailyMessage(context: ContextTypes.DEFAULT_TYPE) -> None:
     quote = Quotes.getDailyMessage()
-    await context.bot.send_message(chat_id=env.get('GROUP_CHAT'), text=quote)
-
+    print(quote)
+    if quote[0] == "text":
+        await context.bot.send_message(chat_id=env.get('GROUP_CHAT'), text=quote[1])
+    if quote[0] == "file":
+        path = Path(quote[1])
+        if path.suffix == ".jpg" or path.suffix == ".png" or path.suffix == ".jpeg":
+            await context.bot.send_photo(chat_id=env.get('GROUP_CHAT'), photo=path)
+        if path.suffix == ".mp4":
+            await context.bot.send_video(chat_id=env.get('GROUP_CHAT'), video=path)
+        if path.suffix == ".gif":
+            await context.bot.send_animation(chat_id=env.get('GROUP_CHAT'), animation=path)
 async def fridaysMessage(context: ContextTypes.DEFAULT_TYPE) -> None:
     quote = Quotes.getFridaysMessage()
     await context.bot.send_message(chat_id=env.get('GROUP_CHAT'), text=quote)
 
 async def help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
-        "*Willkommen zum ZitateBot der LAN Party* \n\nCommands: \n\n /randomzitat vorname nachname \n /zitate vorname nachname \n /addmeme \n /addzitat \n\nRandom:\n /lovis \n /credits\n\n _version 2\\.0\\.0_", parse_mode=parse_mode)
+        "*Willkommen zum ZitateBot der LAN Party* \n\nCommands: \n\n /randomzitat \n /zitate vorname nachname \n /addmeme \n /addzitat \n\nRandom:\n /lovis \n /credits\n\n _version 2\\.0\\.0_", parse_mode=parse_mode)
 
 async def credits(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("Programmiert by Jan \n\nTechnische Hilfe: Fabian und Henning \n\nIdee Zitat des Tages: Claudio", parse_mode=parse_mode)
@@ -86,7 +95,7 @@ def main():
     chat_filter = filters.Chat(chat_id=getAllowedChatIds())
 
     j = app.job_queue
-    j.run_daily(callback=dailyMessage, time=time(hour=18, minute=0, second=0, tzinfo=tz), days=(0, 1, 2, 3, 5, 6), chat_id=env.get("GROUP_CHAT"))
+    j.run_daily(callback=dailyMessage, time=time(hour=20, minute=53, second=30, tzinfo=tz), days=(0, 1, 2, 3, 5, 6), chat_id=env.get("GROUP_CHAT"))
     j.run_daily(callback=fridaysMessage, time=time(hour=18, minute=0, second=0, tzinfo=tz), days=(4,), chat_id=env.get("GROUP_CHAT"))
     j.run_daily(callback=randomMemeWednesday, time=time(hour=17, minute=35, second=0, tzinfo=tz), days=(0, 1, 2, 3, 4, 5, 6), chat_id=env.get("GROUP_CHAT"))
 

@@ -5,6 +5,7 @@ from telegram.error import BadRequest
 from telegram.ext import ConversationHandler, ContextTypes, CallbackContext
 import logging
 from datetime import date
+from datetime import datetime
 
 load_dotenv(dotenv_path=".env")
 
@@ -215,7 +216,7 @@ class AddQuote:
 
         # RETURNING id hinzugefügt (passe 'id' an, falls deine Spalte z.B. zitat_id heißt)
         dbQuery(
-            "INSERT INTO zitate (zitat, person_id, active, daily, addid, kontext, year, adddate) VALUES (%s, %s, False, False, %s, %s, %s, %s) RETURNING id",
+            "INSERT INTO zitate (zitat, person_id, active, daily, addid, kontext, year, adddate, type) VALUES (%s, %s, False, False, %s, %s, %s, %s, 'text') RETURNING id",
             (zitat, person_id, chatid, zcontext, year, date.today()))
         new_id = dbFetchOne()[0] # ID für Admin zum confirmen
         dbCommit()
@@ -227,15 +228,13 @@ class AddQuote:
         query = update.callback_query
         data = query.data
         await query.answer()
-
         # data sieht z.B. so aus: "admin_act_15"
         parts = data.split("_")
         action = parts[1]  # "act" oder "rej"
         zitat_id = parts[2]  # Die ID des Zitats
-
         if action == "act":
             # In der DB auf True setzen
-            dbQuery("UPDATE zitate SET active = True AND daily = True WHERE id = %s", (zitat_id,))
+            dbQuery("UPDATE zitate SET active = True, daily = True WHERE id = %s", (zitat_id,))
             dbCommit()
 
             # Admin-Nachricht aktualisieren (Buttons entfernen)
@@ -261,7 +260,7 @@ class AddQuote:
                 path = f"./media/photo_{photo.file_id}.jpg"
                 await photo.download_to_drive(path)
                 await update.message.reply_text("Bild gespeichert, Vielen Dank")
-                AddQuote.addMediaToDB(media_type="file", path=path)
+                AddQuote.addMediaToDB(media_type="file", path=path, chat_id=update.effective_chat.id)
             elif update.message.video:
                 video = await update.message.video[-1].get_file()
                 path = f"./media/video_{video.file_id}.mp4"
@@ -273,7 +272,7 @@ class AddQuote:
                 path = f"./media/audio_{audio.file_id}.mp3"
                 await audio.download_to_drive(path)
                 await update.message.reply_text("Audio gespeichert, Vielen Dank")
-                AddQuote.addMediaToDB(media_type="file", path=path)
+                AddQuote.addMediaToDB(media_type="file", path=path, chat_id=update.effective_chat.id)
             elif update.message.document:
                 document = await update.message.document.get_file()
                 file_name, file_type = os.path.splitext(update.message.document.file_name)
@@ -306,9 +305,9 @@ class AddQuote:
     @staticmethod
     def addMediaToDB(media_type, path, chat_id):
         dbQuery(
-            "INSERT INTO zitate (daily, active, adddate, file_path, type, addid) "
-            "VALUES (%s, %s, %s, %s, %s, %s)",
-            (False, False, date.today(), path, media_type, chat_id)
+            "INSERT INTO zitate (daily, active, adddate, file_path, type, addid, person_id, year) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+            (False, False, date.today(), path, media_type, chat_id, 1, datetime.now().year)
         )
         dbCommit()
         logger.info(f"{path} - added to database")

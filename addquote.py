@@ -268,7 +268,7 @@ class AddQuote:
                 await update.message.reply_text("Video gespeichert, Vielen Dank")
                 AddQuote.addMediaToDB(media_type="file", path=path)
             elif update.message.audio:
-                audio = await update.message.audio[-1].get_file()
+                audio = await update.message.audio.get_file()
                 path = f"./media/audio_{audio.file_id}.mp3"
                 await audio.download_to_drive(path)
                 await update.message.reply_text("Audio gespeichert, Vielen Dank")

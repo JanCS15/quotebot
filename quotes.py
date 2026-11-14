@@ -63,7 +63,7 @@ class Quotes:
             if checkname is not None and checkname[0] == True:  # If name Exists ->
                 if doubles == False:
                     dbQuery(
-                        "SELECT zitate.year, zitate.kontext, persons.fname, persons.lname, zitate.zitat FROM zitate INNER JOIN persons ON zitate.person_id = persons.person_id WHERE active = true AND fname = %s OR lname = %s AND zitate.type = 'text' LIMIT 30",
+                        "SELECT zitate.year, zitate.kontext, persons.fname, persons.lname, zitate.zitat FROM zitate INNER JOIN persons ON zitate.person_id = persons.person_id WHERE zitate.type = 'text' AND active = true AND fname = %s OR lname = %s  LIMIT 30",
                         (inputname, inputname))
                     zitatelst = dbFetchAll()
                 if doubles == True:
